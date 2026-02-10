@@ -10,7 +10,7 @@ window.APP_CONFIG = {
   oauthClientId: 'W7ScOAjewFFwAHWfWSCdmajr4vP3qdi3ZYWZs4HrsW8',
 
   // Redirect URI registered on the OAuth client. Usually this page URL.
-  redirectUri: https://btgroupcloud-my.sharepoint.com/:u:/r/personal/vishal_monnappa_bt_com/Documents/Documents/work-location-prompt/work-location-prompt/work-location-prompt/index.html,
+  redirectUri: https://github.com/vishalappanna-spec/Work-Location-Prompt.git,
 
   // If true (default), the app will force the agent OFF_QUEUE until they pick Home/Office.
   enforceOffQueue: true
