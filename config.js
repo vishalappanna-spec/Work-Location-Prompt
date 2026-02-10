@@ -7,7 +7,7 @@ window.APP_CONFIG = {
   region: 'euw2.pure.cloud',
 
   // OAuth Client ID (from Admin > Integrations > OAuth). Leave blank if auth is injected by container.
-  oauthClientId: 'W7ScOAjewFFwAHWfWSCdmajr4vP3qdi3ZYWZs4HrsW8',
+  oauthClientId: 'd69a4efc-e529-4b8f-bc5d-5b32be416e4f',
 
   // Redirect URI registered on the OAuth client. Usually this page URL.
   redirectUri: https://vishalappanna-spec.github.io/Work-Location-Prompt/index.html,
