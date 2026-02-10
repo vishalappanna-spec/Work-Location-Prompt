@@ -10,7 +10,7 @@ window.APP_CONFIG = {
   oauthClientId: 'W7ScOAjewFFwAHWfWSCdmajr4vP3qdi3ZYWZs4HrsW8',
 
   // Redirect URI registered on the OAuth client. Usually this page URL.
-  redirectUri: https://github.com/vishalappanna-spec/Work-Location-Prompt.git,
+  redirectUri: https://vishalappanna-spec.github.io/Work-Location-Prompt/index.html,
 
   // If true (default), the app will force the agent OFF_QUEUE until they pick Home/Office.
   enforceOffQueue: true
