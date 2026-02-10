@@ -1,0 +1,17 @@
+
+// Configuration for Work Location Prompt App
+// Fill these values before hosting
+window.APP_CONFIG = {
+  // Your Genesys Cloud region root (no protocol)
+  // Examples: 'euw2.pure.cloud', 'mypurecloud.ie', 'mypurecloud.com', 'apne2.pure.cloud'
+  region: 'euw2.pure.cloud',
+
+  // OAuth Client ID (from Admin > Integrations > OAuth). Leave blank if auth is injected by container.
+  oauthClientId: 'W7ScOAjewFFwAHWfWSCdmajr4vP3qdi3ZYWZs4HrsW8',
+
+  // Redirect URI registered on the OAuth client. Usually this page URL.
+  redirectUri: https://btgroupcloud-my.sharepoint.com/:u:/r/personal/vishal_monnappa_bt_com/Documents/Documents/work-location-prompt/work-location-prompt/work-location-prompt/index.html,
+
+  // If true (default), the app will force the agent OFF_QUEUE until they pick Home/Office.
+  enforceOffQueue: true
+};

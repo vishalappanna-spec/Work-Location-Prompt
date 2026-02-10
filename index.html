@@ -1,0 +1,184 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Work Location Prompt</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; }
+    #modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    #box { background: #fff; padding: 20px 24px; width: 380px; max-width: 92vw; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    h3 { margin: 0 0 8px; font-weight: 600; font-size: 18px; }
+    p { margin: 0 0 16px; color: #333; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    button { cursor: pointer; border: 1px solid #2153f3; background: #2f5df5; color: #fff; padding: 8px 12px; border-radius: 6px; font-weight: 600; }
+    button.secondary { background: #fff; color: #2f5df5; }
+    .toast { position: fixed; right: 16px; bottom: 16px; background: #111; color: #fff; padding: 10px 12px; border-radius: 8px; display: none; }
+  </style>
+  <script src="https://sdk-cdn.mypurecloud.com/javascript/latest/platformClient.js"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <div id="modal">
+    <div id="box">
+      <h3>Select Work Location</h3>
+      <p>Please select your work location before going On Queue.</p>
+      <div class="btns">
+        <button id="btnOffice">Working from Office</button>
+        <button id="btnHome" class="secondary" style="border-color:#888;color:#333;">Working from Home</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    (async function () {
+      const platformClient = window.platformClient;
+      const client = platformClient.ApiClient.instance;
+
+      // --- CONFIG ---
+      const CFG = window.APP_CONFIG || {};
+      const REGION = CFG.region || 'euw2.pure.cloud'; // default per your request
+      const CLIENT_ID = CFG.oauthClientId || '';
+      const REDIRECT_URI = CFG.redirectUri || window.location.href;
+      const ENFORCE_OFF_QUEUE = CFG.enforceOffQueue !== false; // default true
+
+      client.setEnvironment(REGION);
+
+      function showToast(msg, ms = 3000) {
+        const el = document.getElementById('toast');
+        el.textContent = msg; el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, ms);
+      }
+
+      function showModal(show = true) {
+        document.getElementById('modal').style.display = show ? 'flex' : 'none';
+      }
+
+      // If this page is hosted as a Client App inside Genesys, the container may already manage auth.
+      // For general hosting, authorize using Implicit Grant (or switch to PKCE if preferred in your org).
+      try {
+        if (CLIENT_ID) {
+          await client.authorizeImplicitGrant(CLIENT_ID, REDIRECT_URI);
+        }
+      } catch (e) {
+        console.error('Authorization error:', e);
+        showToast('Authorization failed. Please verify OAuth Client settings.');
+      }
+
+      const usersApi = new platformClient.UsersApi();
+      const presApi  = new platformClient.PresenceApi();
+      const notifApi = new platformClient.NotificationsApi();
+
+      async function getMe() {
+        return await usersApi.getUsersMe();
+      }
+
+      async function setWorkLocation(userId, value) {
+        await usersApi.patchUser(userId, { attributes: { workLocation: value } });
+      }
+
+      async function getRoutingStatus(userId) {
+        try { return await presApi.getUserRoutingstatus(userId); } catch (e) { return {}; }
+      }
+
+      async function setOffQueue(userId) {
+        if (!ENFORCE_OFF_QUEUE) return;
+        try { await presApi.putUserRoutingstatus(userId, { status: 'OFF_QUEUE' }); }
+        catch (e) { console.warn('Could not force OFF_QUEUE:', e); }
+      }
+
+      let me;
+      try {
+        me = await getMe();
+      } catch (e) {
+        console.error('Failed to load user profile:', e);
+        showToast('Unable to load user profile.');
+        return;
+      }
+
+      const userId = me.id;
+      let workLocation = (me.attributes || {}).workLocation;
+      if (!workLocation) showModal(true);
+
+      document.getElementById('btnOffice').onclick = async () => {
+        try {
+          await setWorkLocation(userId, 'Office');
+          workLocation = 'Office';
+          showModal(false);
+          showToast('Work location set to Office');
+        } catch (e) {
+          console.error(e); showToast('Failed to set work location');
+        }
+      };
+
+      document.getElementById('btnHome').onclick = async () => {
+        try {
+          await setWorkLocation(userId, 'Home');
+          workLocation = 'Home';
+          showModal(false);
+          showToast('Work location set to Home');
+        } catch (e) {
+          console.error(e); showToast('Failed to set work location');
+        }
+      };
+
+      // Subscribe to routing status changes
+      let channel;
+      try {
+        channel = await notifApi.postNotificationsChannels();
+      } catch (e) {
+        console.error('Failed to create notifications channel:', e);
+        showToast('Notifications channel error');
+        return;
+      }
+
+      const ws = new WebSocket(channel.connectUri);
+      ws.onopen = async () => {
+        try {
+          await notifApi.putNotificationsChannelSubscriptions(channel.id, [
+            { id: `v2.users.${userId}.routingStatus` }
+          ]);
+        } catch (e) {
+          console.error('Subscription error:', e);
+          showToast('Subscription error');
+        }
+      };
+
+      ws.onmessage = async (m) => {
+        try {
+          const event = JSON.parse(m.data);
+          if (!event.topicName || !event.topicName.endsWith(`v2.users.${userId}.routingStatus`)) return;
+
+          // Refresh workLocation
+          try {
+            const meNow = await getMe();
+            workLocation = (meNow.attributes || {}).workLocation;
+          } catch (e) { /* ignore */ }
+
+          const body = event.eventBody || {};
+          const status = (body.routingStatus || {}).status || body.status;
+          const needsChoice = !workLocation && (status === 'IDLE' || status === 'ON_QUEUE' || status === 'INTERACTING');
+          if (needsChoice) {
+            showModal(true);
+            await setOffQueue(userId);
+          }
+        } catch (e) {
+          console.warn('WS event parse error:', e);
+        }
+      };
+
+      // Immediate check: if already On Queue/Idle without selection
+      try {
+        const rs = await getRoutingStatus(userId);
+        const status = rs.status;
+        if (!workLocation && (status === 'IDLE' || status === 'ON_QUEUE' || status === 'INTERACTING')) {
+          showModal(true);
+          await setOffQueue(userId);
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
+</body>
+</html>
